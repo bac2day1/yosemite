@@ -1,0 +1,16 @@
+services:
+  yosemite-watcher:
+    image: ghcr.io/bac2day1/yosemite:latest
+    build: .
+    container_name: yosemite-lodging-watcher
+    restart: unless-stopped
+    ports:
+      - "3847:3847"
+    volumes:
+      - yosemite_data:/app/data
+    environment:
+      - PORT=3847
+      - TZ=America/Los_Angeles
+
+volumes:
+  yosemite_data:
