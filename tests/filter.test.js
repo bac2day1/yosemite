@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { roomMatchesWatch, buildDateSegments, parsePrice } = require('../src/filter');
+const { roomMatchesWatch, buildDateSegments, parsePrice, detectSiteOutage } = require('../src/filter');
 const { validateWatchInput } = require('../src/config');
 
 const indoorWatch = {
@@ -94,6 +94,15 @@ test('builds full stay plus all 4 individual nights for June 7-11, 2027', () => 
 
   const fullOnly = buildDateSegments('2027-06-07', '2027-06-11', 'full');
   assert.equal(fullOnly.length, 1);
+});
+
+test('recognizes the reservation site maintenance page but not a normal page', () => {
+  const maintenance = 'Plan Your Trip Our reservations system is currently offline for maintenance. Please try your request at a later time. (ERR: SCHM02)';
+  assert.equal(detectSiteOutage(maintenance), 'SCHM02');
+  assert.equal(detectSiteOutage('We are currently offline for maintenance'), 'maintenance');
+  assert.equal(detectSiteOutage('Curry Village Stoneman Standard $256.85 AVERAGE/NIGHT'), null);
+  assert.equal(detectSiteOutage('We couldn\'t find any results for your search!'), null);
+  assert.equal(detectSiteOutage(undefined), null);
 });
 
 test('parses formatted prices and validates watch inputs', () => {

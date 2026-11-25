@@ -116,11 +116,24 @@ function parsePrice(priceText) {
   return Number.isFinite(num) ? num : null;
 }
 
+// Text Yosemite's reservation site shows instead of the search form during maintenance.
+const OUTAGE_PATTERN = 'currently offline for maintenance|temporarily (?:offline|unavailable)|ERR:\\s*SCHM';
+
+/** Returns the site's error code (or "maintenance") when the page is an outage notice, otherwise null. */
+function detectSiteOutage(pageText) {
+  const text = String(pageText || '');
+  if (!new RegExp(OUTAGE_PATTERN, 'i').test(text)) return null;
+  const code = text.match(/ERR:\s*([A-Z0-9]+)/i);
+  return code ? code[1].toUpperCase() : 'maintenance';
+}
+
 module.exports = {
   roomMatchesWatch,
   buildDateSegments,
   addDays,
   toUsDate,
   formatShortDate,
-  parsePrice
+  parsePrice,
+  OUTAGE_PATTERN,
+  detectSiteOutage
 };

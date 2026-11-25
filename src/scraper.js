@@ -1,6 +1,14 @@
 const { chromium } = require('playwright');
 const { PROPERTIES } = require('./config');
-const { buildDateSegments, roomMatchesWatch, toUsDate, parsePrice } = require('./filter');
+const { buildDateSegments, roomMatchesWatch, toUsDate, parsePrice, OUTAGE_PATTERN, detectSiteOutage } = require('./filter');
+
+/** Thrown when Yosemite's reservation site is down. Aborts the whole check instead of timing out segment by segment. */
+class SiteOfflineError extends Error {
+  constructor(code) {
+    super(`Yosemite’s reservation system is offline for maintenance right now (${code}). We’ll keep trying automatically.`);
+    this.code = 'SITE_OFFLINE';
+  }
+}
 
 const SEARCH_LANDING_URL = 'https://reservations.ahlsmsworld.com/Yosemite/Plan-Your-Trip/Accommodations/Yosemite-Valley-Lodge';
 
@@ -75,8 +83,16 @@ class YosemiteScraper {
       await page.goto(SEARCH_LANDING_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     }
 
+    // The search form appears when the site is up; a maintenance notice appears when it is not.
+    const pageState = await page.waitForFunction(pattern => {
+      if ([...document.querySelectorAll('select')].some(s => s.offsetParent !== null)) return 'form';
+      if (new RegExp(pattern, 'i').test(document.body ? document.body.innerText : '')) return 'offline';
+      return false;
+    }, OUTAGE_PATTERN, { timeout: 25000 }).then(handle => handle.jsonValue());
+    if (pageState === 'offline') {
+      throw new SiteOfflineError(detectSiteOutage(await page.locator('body').innerText()) || 'maintenance');
+    }
     const visSelects = page.locator('select:visible');
-    await visSelects.nth(0).waitFor({ state: 'visible', timeout: 25000 });
 
     // Wait for loading overlay to clear if present
     await page.locator('.wxa-loading-overlay, .blockUI').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
@@ -99,19 +115,21 @@ class YosemiteScraper {
     const submitBtn = page.getByRole('button', { name: /Check Availability|Search/i }).first();
     await submitBtn.click();
 
-    // Wait through PleaseWait -> Results (or detect temporary rejection fast)
-    await page.waitForFunction(() => {
+    // Wait through PleaseWait -> Results (or detect temporary rejection / outage fast)
+    await page.waitForFunction(pattern => {
       const href = location.href;
       if (href.includes('/PleaseWait')) return false;
       const bodyText = document.body ? document.body.innerText : '';
-      if (/Action not allowed/i.test(bodyText)) return true;
+      if (/Action not allowed/i.test(bodyText) || new RegExp(pattern, 'i').test(bodyText)) return true;
       const hasResults = document.querySelectorAll('.panel-rate-result-item').length > 0;
       const hasNoResults = /couldn't find any results|no availability|not available/i.test(bodyText);
       return href.includes('/Accommodation-Search/Results') && (hasResults || hasNoResults);
-    }, { timeout: 35000 });
+    }, OUTAGE_PATTERN, { timeout: 35000 });
 
-    const rejected = await page.evaluate(() => /Action not allowed/i.test(document.body?.innerText || ''));
-    if (rejected) {
+    const resultText = await page.locator('body').innerText();
+    const outage = detectSiteOutage(resultText);
+    if (outage) throw new SiteOfflineError(outage);
+    if (/Action not allowed/i.test(resultText)) {
       throw new Error('Yosemite reservation site temporarily paused this request; will retry on next cycle.');
     }
 
@@ -253,6 +271,8 @@ class YosemiteScraper {
               rooms: matchedRooms
             };
           } catch (err) {
+            // A site-wide outage means every remaining segment would fail too, so stop and report it once.
+            if (err.code === 'SITE_OFFLINE') throw err;
             errors.push({
               propertyCode: propCode,
               propertyName: prop.name,
