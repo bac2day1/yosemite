@@ -4,6 +4,8 @@ services:
     build: .
     container_name: yosemite-lodging-watcher
     restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     ports:
       - "3847:3847"
     volumes:
