@@ -45,6 +45,11 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/yosemite:${{ github.sha }}
 
       - name: Trigger Portainer webhook (if configured)
-        if: ${{ secrets.PORTAINER_WEBHOOK_URL != '' }}
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
         run: |
-          curl -fsSL -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" || echo "Portainer webhook unreachable from GitHub runner (private LAN IP?); pull image in Portainer."
+          if [ -n "$PORTAINER_WEBHOOK_URL" ]; then
+            curl -fsSL -X POST "$PORTAINER_WEBHOOK_URL" || echo "Portainer webhook unreachable from GitHub runner; pull image in Portainer."
+          else
+            echo "No PORTAINER_WEBHOOK_URL secret configured; skipping webhook."
+          fi
