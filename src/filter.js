@@ -61,10 +61,11 @@ function roomMatchesWatch(room, watch) {
  * - Always includes the full stay (checkIn -> checkOut)
  * - If matchMode === 'both' and stay > 1 night, also includes each individual night
  */
-function buildDateSegments(checkIn, checkOut, matchMode = 'both') {
+function buildDateSegments(checkIn, checkOut, matchMode = 'both', bookedNights = []) {
   const start = new Date(checkIn + 'T00:00:00Z');
   const end = new Date(checkOut + 'T00:00:00Z');
   const nights = Math.round((end - start) / 86400000);
+  const booked = new Set(bookedNights || []);
 
   const segments = [
     {
@@ -79,6 +80,8 @@ function buildDateSegments(checkIn, checkOut, matchMode = 'both') {
   if (matchMode === 'both' && nights > 1) {
     for (let i = 0; i < nights; i++) {
       const nStart = addDays(checkIn, i);
+      // Nights already booked elsewhere are no longer worth checking
+      if (booked.has(nStart)) continue;
       const nEnd = addDays(checkIn, i + 1);
       segments.push({
         kind: 'night',
@@ -116,6 +119,50 @@ function parsePrice(priceText) {
   return Number.isFinite(num) ? num : null;
 }
 
+// ---------- Rooms needed ----------
+// Every needed room has its own guests and its own booked nights. Rooms with the same guests share one search.
+
+function nightsOf(checkIn, checkOut) {
+  const out = [];
+  for (let n = checkIn; n < checkOut; n = addDays(n, 1)) out.push(n);
+  return out;
+}
+
+function partyKey(slot) {
+  return `${slot.adults}-${slot.children}`;
+}
+
+/** Groups rooms by their guests so identical rooms are searched once, not once per room. */
+function groupRoomParties(roomSlots) {
+  const groups = new Map();
+  for (const slot of roomSlots || []) {
+    const key = partyKey(slot);
+    if (!groups.has(key)) groups.set(key, { key, adults: slot.adults, children: slot.children, slots: [] });
+    groups.get(key).slots.push(slot);
+  }
+  return [...groups.values()];
+}
+
+/** Nights that every one of these rooms has already booked, so they need no more searching. */
+function bookedInAllRooms(slots) {
+  if (!slots || slots.length === 0) return [];
+  return (slots[0].bookedNights || []).filter(n => slots.every(s => (s.bookedNights || []).includes(n)));
+}
+
+function roomsFullyBooked(roomSlots, checkIn, checkOut) {
+  const total = nightsOf(checkIn, checkOut).length;
+  return roomSlots.length > 0 && roomSlots.every(s => (s.bookedNights || []).length >= total);
+}
+
+/** The rooms an opening could still serve: same guests, and none of its nights booked yet. */
+function roomsForMatch(roomSlots, match) {
+  const nights = match.segmentKind === 'night' ? [match.checkIn] : nightsOf(match.checkIn, match.checkOut);
+  return (roomSlots || []).filter(s => {
+    if (match.adults !== undefined && (s.adults !== match.adults || s.children !== match.children)) return false;
+    return nights.every(n => !(s.bookedNights || []).includes(n));
+  });
+}
+
 // Text Yosemite's reservation site shows instead of the search form during maintenance.
 const OUTAGE_PATTERN = 'currently offline for maintenance|temporarily (?:offline|unavailable)|ERR:\\s*SCHM';
 
@@ -134,6 +181,12 @@ module.exports = {
   toUsDate,
   formatShortDate,
   parsePrice,
+  nightsOf,
+  partyKey,
+  groupRoomParties,
+  bookedInAllRooms,
+  roomsFullyBooked,
+  roomsForMatch,
   OUTAGE_PATTERN,
   detectSiteOutage
 };

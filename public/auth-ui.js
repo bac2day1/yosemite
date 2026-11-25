@@ -25,6 +25,8 @@
       .replace(/"/g, '&quot;');
   }
 
+  const ico = (name, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use href="/icons.svg#i-${name}"/></svg>`;
+
   async function api(url, opts = {}) {
     const res = await fetch(url, {
       headers: { 'Content-Type': 'application/json' },
@@ -176,16 +178,17 @@
     const keys = member.passkeys || [];
     const list = $('ownPasskeysList');
     if (!keys.length) {
-      list.innerHTML = `<div class="muted" style="font-size:0.86rem">No passkeys registered yet. Add one below for 1-tap sign-in!</div>`;
+      list.innerHTML = `<div class="row-empty">No passkeys yet. Add one below for one-tap sign-in.</div>`;
       return;
     }
     list.innerHTML = keys.map(k => `
-      <div class="passkey-row">
-        <div>
-          <strong>🔑 ${escapeHtml(k.label)}</strong>
-          <div class="muted" style="font-size:0.78rem">Added ${new Date(k.createdAt).toLocaleDateString()}${k.lastUsedAt ? ' · Last used ' + new Date(k.lastUsedAt).toLocaleDateString() : ''}</div>
+      <div class="row">
+        <span class="row-icon">${ico('key-round')}</span>
+        <div class="row-main">
+          <strong>${escapeHtml(k.label)}</strong>
+          <small>Added ${new Date(k.createdAt).toLocaleDateString()}${k.lastUsedAt ? ' · Last used ' + new Date(k.lastUsedAt).toLocaleDateString() : ''}</small>
         </div>
-        <button class="btn btn-danger btn-sm" data-remove-own-key="${escapeHtml(k.id)}" type="button">Remove</button>
+        <button class="btn btn-danger btn-sm" data-remove-own-key="${escapeHtml(k.id)}" type="button">${ico('trash-2')} Remove</button>
       </div>
     `).join('');
   }
@@ -197,21 +200,25 @@
       const isSelf = currentMember && m.id === currentMember.id;
       const method = m.passkeyCount > 0
         ? `${m.passkeyCount} passkey${m.passkeyCount === 1 ? '' : 's'}${m.passwordEnabled ? ' + backup password' : ' only'}`
-        : (m.passwordResetRequired ? 'Pending 1-time temp password → passkey' : 'Password only');
+        : (m.passwordResetRequired ? 'One-time password, passkey pending' : 'Password only');
 
       return `
-        <div class="roster-card">
-          <div class="roster-head">
-            <strong>${escapeHtml(m.name)}${isSelf ? ' (you)' : ''}</strong>
-            <span class="badge">${escapeHtml(m.role)}</span>
-            <span class="badge ${m.active ? 'badge-active' : 'badge-paused'}">${m.active ? 'Active' : 'Disabled'}</span>
-            ${m.passwordResetRequired ? '<span class="badge badge-paused">Must set up passkey on next login</span>' : ''}
+        <div class="member">
+          <div class="member-top">
+            <span class="avatar" aria-hidden="true">${escapeHtml((m.name || '?').trim().charAt(0).toUpperCase())}</span>
+            <div class="row-main">
+              <div class="member-name">${escapeHtml(m.name)}${isSelf ? ' <span class="muted">(you)</span>' : ''}
+                <span class="badge">${escapeHtml(m.role)}</span>
+                <span class="badge ${m.active ? 'badge-active' : 'badge-paused'}">${m.active ? 'Active' : 'Disabled'}</span>
+                ${m.passwordResetRequired ? '<span class="badge badge-pending">Passkey needed</span>' : ''}
+              </div>
+              <div class="member-meta">${escapeHtml(method)} · Last sign-in ${m.lastSignInAt ? new Date(m.lastSignInAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never'}</div>
+            </div>
           </div>
-          <div class="roster-meta">Sign-in: <strong>${escapeHtml(method)}</strong> · Last sign-in: ${m.lastSignInAt ? new Date(m.lastSignInAt).toLocaleString() : 'Never'}</div>
-          <div class="roster-actions">
-            <button class="btn btn-secondary btn-sm" data-roster-reset="${escapeHtml(m.id)}" data-roster-name="${escapeHtml(m.name)}" data-roster-role="${escapeHtml(m.role)}" type="button">${m.role === 'Member' ? 'Reset Sign-In (New Temp PW)' : 'Change Password'}</button>
-            ${!isSelf ? `<button class="btn btn-ghost btn-sm" data-roster-toggle="${escapeHtml(m.id)}" data-roster-active="${m.active ? '1' : '0'}" type="button">${m.active ? 'Disable' : 'Enable'}</button>` : ''}
-            ${!isSelf ? `<button class="btn btn-danger btn-sm" data-roster-delete="${escapeHtml(m.id)}" data-roster-name="${escapeHtml(m.name)}" type="button">Remove</button>` : ''}
+          <div class="member-actions">
+            <button class="btn btn-secondary btn-sm" data-roster-reset="${escapeHtml(m.id)}" data-roster-name="${escapeHtml(m.name)}" data-roster-role="${escapeHtml(m.role)}" type="button">${ico('rotate-ccw')} ${m.role === 'Member' ? 'Reset sign-in' : 'Change password'}</button>
+            ${!isSelf ? `<button class="btn btn-ghost btn-sm" data-roster-toggle="${escapeHtml(m.id)}" data-roster-active="${m.active ? '1' : '0'}" type="button">${ico(m.active ? 'pause' : 'play')} ${m.active ? 'Disable' : 'Enable'}</button>` : ''}
+            ${!isSelf ? `<button class="btn btn-danger btn-sm" data-roster-delete="${escapeHtml(m.id)}" data-roster-name="${escapeHtml(m.name)}" type="button">${ico('trash-2')} Remove</button>` : ''}
           </div>
         </div>
       `;
@@ -219,8 +226,8 @@
 
     const audit = data.audit || [];
     $('auditList').innerHTML = audit.length
-      ? audit.map(a => `<div class="audit-row"><strong>${escapeHtml(a.actorName)}</strong> · ${escapeHtml(a.action)}${a.detail ? ' — ' + escapeHtml(a.detail) : ''} <span style="float:right">${new Date(a.timestamp).toLocaleString()}</span></div>`).join('')
-      : '<div class="muted" style="font-size:0.82rem">No access events yet.</div>';
+      ? audit.map(a => `<div class="audit-row"><span><strong>${escapeHtml(a.actorName)}</strong> · ${escapeHtml(a.action)}${a.detail ? ': ' + escapeHtml(a.detail) : ''}</span><time>${new Date(a.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</time></div>`).join('')
+      : '<div class="audit-row"><span class="muted">No access events yet.</span></div>';
   }
 
   async function openAccountsModal() {
@@ -354,7 +361,12 @@
     $('ownPasskeysList').addEventListener('click', async e => {
       const btn = e.target.closest('button[data-remove-own-key]');
       if (!btn) return;
-      if (!confirm('Remove this passkey?')) return;
+      const ok = await UiDialog.confirm({
+        title: 'Remove this passkey?',
+        message: 'You won’t be able to sign in with it anymore.',
+        confirmLabel: 'Remove passkey', danger: true, icon: 'key-round'
+      });
+      if (!ok) return;
       $('ownPasskeyError').classList.add('hidden');
       try {
         const res = await api(`/api/auth/passkey/${encodeURIComponent(btn.getAttribute('data-remove-own-key'))}`, { method: 'DELETE' });
@@ -415,12 +427,14 @@
         const name = resetBtn.getAttribute('data-roster-name');
         const role = resetBtn.getAttribute('data-roster-role');
         const suggested = randomTempPassword();
-        const pw = prompt(
-          role === 'Member'
-            ? `Enter a new one-time temporary password for ${name} (min 12 chars). Their old passkeys will be cleared:`
-            : `Enter a new password for Administrator ${name} (min 12 chars):`,
-          suggested
-        );
+        const pw = await UiDialog.prompt({
+          title: role === 'Member' ? `Reset ${name}’s sign-in` : `Change ${name}’s password`,
+          message: role === 'Member'
+            ? 'Their old passkeys are removed. This one-time password works once, then they set up a new passkey. At least 12 characters.'
+            : 'At least 12 characters, and unique across accounts.',
+          confirmLabel: 'Save password', icon: 'key-round',
+          input: { value: suggested, placeholder: 'New password' }
+        });
         if (!pw) return;
         try {
           const res = await api(`/api/auth/members/${id}/reset-password`, {
@@ -431,7 +445,7 @@
           $('amFeedback').textContent = `Updated sign-in for ${name}. New password: ${pw}`;
           $('amFeedback').classList.remove('hidden');
         } catch (err) {
-          alert(err.message);
+          window.UiToast(err.message, 'error');
         }
         return;
       }
@@ -447,7 +461,7 @@
           });
           renderRoster(res);
         } catch (err) {
-          alert(err.message);
+          window.UiToast(err.message, 'error');
         }
         return;
       }
@@ -456,12 +470,17 @@
       if (delBtn) {
         const id = delBtn.getAttribute('data-roster-delete');
         const name = delBtn.getAttribute('data-roster-name');
-        if (!confirm(`Remove ${name}? They will no longer be able to sign in.`)) return;
+        const ok = await UiDialog.confirm({
+          title: `Remove ${name}?`,
+          message: 'They will no longer be able to sign in. Their sign-in history stays in the access log.',
+          confirmLabel: 'Remove', danger: true, icon: 'user-round'
+        });
+        if (!ok) return;
         try {
           const res = await api(`/api/auth/members/${id}`, { method: 'DELETE' });
           renderRoster(res);
         } catch (err) {
-          alert(err.message);
+          window.UiToast(err.message, 'error');
         }
       }
     });

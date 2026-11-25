@@ -7,8 +7,10 @@ const {
   loadState,
   saveState,
   validateWatchInput,
+  normalizeBookedNights,
   generateTopic
 } = require('./config');
+const { roomsFullyBooked } = require('./filter');
 const { YosemiteScraper } = require('./scraper');
 const { WatchScheduler } = require('./scheduler');
 const { dispatchAlerts } = require('./notifier');
@@ -117,7 +119,8 @@ app.put('/api/watches/:id', requireAuth, (req, res) => {
     return res.status(404).json({ error: 'Watch request not found.' });
   }
   try {
-    const updated = validateWatchInput(req.body, req.params.id);
+    // Each room keeps its own booked nights; the editor only changes guests, labels and how many rooms
+    const updated = validateWatchInput(req.body, req.params.id, config.watches[idx]);
     config.watches[idx] = updated;
     saveConfig(config);
     // Clear previous seenKeys if criteria changed so new matches trigger alerts cleanly
@@ -132,6 +135,52 @@ app.put('/api/watches/:id', requireAuth, (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// Mark nights as booked for a room (or undo). A booked night stops being searched for that room.
+// With no roomId, an opening was just booked: it goes to the first room with matching guests that still needs all of those nights.
+// When every room has every night, the watch pauses itself; freeing a night resumes it.
+app.post('/api/watches/:id/booked', requireAuth, (req, res) => {
+  const watch = config.watches.find(w => w.id === req.params.id);
+  if (!watch) {
+    return res.status(404).json({ error: 'Watch request not found.' });
+  }
+  const nights = normalizeBookedNights(req.body?.nights, watch.checkIn, watch.checkOut);
+  if (nights.length === 0) {
+    return res.status(400).json({ error: 'Choose at least one night inside this watch’s dates.' });
+  }
+  const wantBooked = req.body.booked !== false;
+  const wasAllBooked = roomsFullyBooked(watch.roomSlots, watch.checkIn, watch.checkOut);
+
+  let room;
+  if (req.body.roomId) {
+    room = watch.roomSlots.find(r => r.id === req.body.roomId);
+    if (!room) return res.status(404).json({ error: 'Room not found on this watch.' });
+  } else if (wantBooked) {
+    const guests = String(req.body.partyKey || '').match(/^(\d+)-(\d+)$/);
+    room = watch.roomSlots.find(r =>
+      (!guests || (r.adults === Number(guests[1]) && r.children === Number(guests[2])))
+      && nights.every(n => !r.bookedNights.includes(n)));
+    if (!room) return res.status(400).json({ error: 'Every room is already booked for that.' });
+  } else {
+    return res.status(400).json({ error: 'Choose which room to undo.' });
+  }
+
+  const booked = new Set(room.bookedNights);
+  for (const night of nights) {
+    if (wantBooked) booked.add(night);
+    else booked.delete(night);
+  }
+  room.bookedNights = [...booked].sort();
+
+  const allBooked = roomsFullyBooked(watch.roomSlots, watch.checkIn, watch.checkOut);
+  if (allBooked) watch.enabled = false;
+  else if (wasAllBooked) watch.enabled = true; // a night was freed up, so keep looking
+
+  saveConfig(config);
+  scheduler.syncSchedules();
+  broadcast('configChanged', { config, runtime: scheduler.getRuntimeStatus() });
+  res.json({ watch, allBooked, room: { id: room.id, label: room.label } });
 });
 
 // Delete a watch request

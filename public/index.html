@@ -2,384 +2,500 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Yosemite Valley Lodging Watcher</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Yosemite Valley Lodging Watch</title>
+  <meta name="description" content="A private watcher for Yosemite Valley lodging. Checks the official reservation system around the clock and alerts you the moment a room opens." />
+  <meta name="theme-color" content="#2e5c45" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" href="/fonts/fraunces-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <script>try{if(localStorage.getItem('yosemite-theme')==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}</script>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <!-- Auth Gate (First Admin Setup / Sign In / Mandatory Passkey Setup) -->
-  <div id="authGate" class="auth-gate hidden">
-    <div class="auth-card">
-      <div class="auth-brand">
-        <div class="brand-badge" aria-hidden="true">⛰️</div>
-        <div>
-          <h1>Yosemite Valley Lodging Watcher</h1>
-          <p class="subtitle">Private family lodging monitor</p>
-        </div>
-      </div>
 
-      <!-- 1. First-Time Admin Setup -->
-      <form id="setupForm" class="auth-panel hidden">
-        <h2>Set Up Your Admin Account</h2>
-        <p class="auth-hint">Create the first administrator account. You'll keep this password as a backup and can add a passkey right after.</p>
-        <div class="form-group">
-          <label for="setupName">Your Name</label>
-          <input id="setupName" type="text" required minlength="2" maxlength="60" placeholder="e.g. Greg" autocomplete="name" />
+  <!-- ============ Sign-in gate ============ -->
+  <div id="authGate" class="gate scene hidden">
+    <img id="gateScene" class="scene-img" alt="" decoding="async" fetchpriority="high" />
+    <div class="scene-veil scene-veil-gate"></div>
+
+    <button class="chip-btn icon-only gate-theme js-theme-toggle" type="button" aria-label="Switch to dark mode">
+      <svg class="i"><use href="/icons.svg#i-moon"/></svg>
+    </button>
+
+    <main class="gate-card">
+      <header class="gate-brand">
+        <img class="logo logo-lg" src="/favicon.svg" alt="" />
+        <div>
+          <p class="eyebrow">Yosemite Valley</p>
+          <h1 class="gate-title">Lodging Watch</h1>
         </div>
-        <div class="form-group">
-          <label for="setupPassword">Admin Password (at least 12 characters)</label>
-          <input id="setupPassword" type="password" required minlength="12" autocomplete="new-password" />
+      </header>
+
+      <!-- First-time admin setup -->
+      <form id="setupForm" class="gate-panel hidden" novalidate>
+        <div>
+          <h2 class="gate-h2">Welcome. Let’s set you up.</h2>
+          <p class="help">Create the first administrator account. Your password stays as a backup, and you can add a passkey right after.</p>
         </div>
-        <div class="form-group">
-          <label for="setupConfirm">Confirm Password</label>
-          <input id="setupConfirm" type="password" required minlength="12" autocomplete="new-password" />
+        <div class="field">
+          <label class="lbl" for="setupName">Your name</label>
+          <input id="setupName" class="control" type="text" required minlength="2" maxlength="60" placeholder="e.g. Greg" autocomplete="name" />
         </div>
-        <div id="setupError" class="form-error hidden"></div>
-        <button type="submit" class="btn btn-primary btn-block">Create Admin Account</button>
+        <div class="field">
+          <label class="lbl" for="setupPassword">Admin password</label>
+          <input id="setupPassword" class="control" type="password" required minlength="12" autocomplete="new-password" placeholder="At least 12 characters" />
+        </div>
+        <div class="field">
+          <label class="lbl" for="setupConfirm">Confirm password</label>
+          <input id="setupConfirm" class="control" type="password" required minlength="12" autocomplete="new-password" />
+        </div>
+        <div id="setupError" class="alert alert-error hidden" role="alert"></div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg">Create admin account</button>
       </form>
 
-      <!-- 2. Sign In (Passkey or Password) -->
-      <div id="loginPanel" class="auth-panel hidden">
-        <h2>Sign In</h2>
-        <div id="passkeyLoginSection" class="passkey-login-box">
-          <button id="btnPasskeyLogin" type="button" class="btn btn-primary btn-block">🔑 Sign in with Passkey</button>
-          <div class="auth-divider"><span>or use a password</span></div>
+      <!-- Sign in -->
+      <div id="loginPanel" class="gate-panel hidden">
+        <div>
+          <h2 class="gate-h2">Welcome back</h2>
+          <p class="help">Sign in to see what’s open in the Valley.</p>
         </div>
-        <form id="loginForm" class="auth-form-stack">
-          <div class="form-group">
-            <label for="loginPassword">Password or One-Time Temporary Password</label>
-            <input id="loginPassword" type="password" required autocomplete="current-password" placeholder="Enter your password" />
+        <div id="passkeyLoginSection" class="stack">
+          <button id="btnPasskeyLogin" type="button" class="btn btn-primary btn-block btn-lg">
+            <svg class="i"><use href="/icons.svg#i-fingerprint"/></svg> Sign in with passkey
+          </button>
+          <div class="divider"><span>or use a password</span></div>
+        </div>
+        <form id="loginForm" class="stack" novalidate>
+          <div class="field">
+            <label class="lbl" for="loginPassword">Password or one-time password</label>
+            <input id="loginPassword" class="control" type="password" required autocomplete="current-password" placeholder="Enter your password" />
           </div>
-          <div id="loginError" class="form-error hidden"></div>
-          <button type="submit" class="btn btn-secondary btn-block">Sign In with Password</button>
+          <div id="loginError" class="alert alert-error hidden" role="alert"></div>
+          <button type="submit" class="btn btn-secondary btn-block btn-lg">Sign in with password</button>
         </form>
       </div>
 
-      <!-- 3. Mandatory Passkey Enrollment (for one-time temp password users) -->
-      <div id="enrollPanel" class="auth-panel hidden">
-        <h2>Set Up Your Passkey</h2>
-        <div class="info-box">
-          <strong>One-time password used!</strong><br />
-          Set up a passkey on your phone or computer now. Once saved, your temporary password is permanently retired and you'll sign in with your passkey in one tap.
+      <!-- Mandatory passkey enrollment -->
+      <div id="enrollPanel" class="gate-panel hidden">
+        <div>
+          <h2 class="gate-h2">Set up your passkey</h2>
+          <p class="help">One last step before you’re in.</p>
         </div>
-        <div class="form-group">
-          <label for="enrollLabel">Device Name (optional)</label>
-          <input id="enrollLabel" type="text" maxlength="60" placeholder="e.g. My iPhone or Laptop" />
+        <div class="callout">
+          <svg class="i callout-i"><use href="/icons.svg#i-shield-check"/></svg>
+          <p><strong>Your one-time password worked.</strong> Create a passkey on this phone or computer. Once saved, the temporary password is retired for good and you’ll sign in with a single tap.</p>
         </div>
-        <div id="enrollError" class="form-error hidden"></div>
-        <button id="btnEnrollPasskey" type="button" class="btn btn-primary btn-block">🔑 Create My Passkey</button>
-        <button id="btnEnrollSignOut" type="button" class="btn btn-ghost btn-block">Sign Out</button>
+        <div class="field">
+          <label class="lbl" for="enrollLabel">Device name <span class="lbl-opt">optional</span></label>
+          <input id="enrollLabel" class="control" type="text" maxlength="60" placeholder="e.g. My iPhone" />
+        </div>
+        <div id="enrollError" class="alert alert-error hidden" role="alert"></div>
+        <button id="btnEnrollPasskey" type="button" class="btn btn-primary btn-block btn-lg">
+          <svg class="i"><use href="/icons.svg#i-key-round"/></svg> Create my passkey
+        </button>
+        <button id="btnEnrollSignOut" type="button" class="btn btn-ghost btn-block">Sign out</button>
       </div>
-    </div>
+
+      <p class="gate-fine">Private family tool · Not affiliated with the National Park Service or Aramark</p>
+    </main>
+
+    <a id="gateCredit" class="photo-credit" href="#" target="_blank" rel="noopener">
+      <svg class="i"><use href="/icons.svg#i-mountain-snow"/></svg><span class="photo-credit-text"></span>
+    </a>
   </div>
 
-  <div id="appShell" class="app-shell hidden">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-badge" aria-hidden="true">⛰️</div>
-        <div>
-          <h1>Yosemite Valley Lodging Watcher</h1>
-          <p class="subtitle">Official Yosemite Valley lodging only · No offsite stays · Free phone &amp; desktop alerts</p>
-        </div>
-      </div>
+  <!-- ============ App ============ -->
+  <div id="appShell" class="app hidden">
+    <header class="hero scene">
+      <img id="heroScene" class="scene-img" alt="" decoding="async" />
+      <div class="scene-veil"></div>
 
-      <div class="topbar-actions">
-        <button id="btnCheckAll" class="btn btn-primary" type="button">Check All Now</button>
-        <button id="btnNewWatch" class="btn btn-secondary" type="button">+ New Watch Request</button>
-        <button id="btnAlertsSettings" class="btn btn-ghost" type="button">🔔 Alerts</button>
-        <button id="btnAccounts" class="btn btn-ghost" type="button">🔐 <span id="currentUserLabel">Account</span></button>
-        <button id="btnSignOut" class="btn btn-ghost btn-sm" type="button">Sign Out</button>
-        <button id="btnTheme" class="btn btn-ghost btn-icon" type="button" title="Toggle light / dark mode" aria-label="Toggle light or dark mode">🌙</button>
+      <div class="hero-inner">
+        <nav class="topnav" aria-label="Primary">
+          <a class="brand" href="/" aria-label="Yosemite Valley Lodging Watch">
+            <img class="logo" src="/favicon.svg" alt="" />
+            <span class="brand-name">Lodging Watch</span>
+          </a>
+          <div class="topnav-actions">
+            <button id="btnAlertsSettings" class="chip-btn" type="button">
+              <svg class="i"><use href="/icons.svg#i-bell"/></svg><span class="chip-label">Alerts</span>
+            </button>
+            <button id="btnAccounts" class="chip-btn" type="button">
+              <svg class="i"><use href="/icons.svg#i-user-round"/></svg><span id="currentUserLabel" class="chip-label">Account</span>
+            </button>
+            <button class="chip-btn icon-only js-theme-toggle" id="btnTheme" type="button" aria-label="Switch to dark mode">
+              <svg class="i"><use href="/icons.svg#i-moon"/></svg>
+            </button>
+            <button id="btnSignOut" class="chip-btn icon-only" type="button" aria-label="Sign out" title="Sign out">
+              <svg class="i"><use href="/icons.svg#i-log-out"/></svg>
+            </button>
+          </div>
+        </nav>
+
+        <div class="hero-copy">
+          <p class="eyebrow eyebrow-light">Yosemite Valley · Official lodging only</p>
+          <h1 class="hero-title">Your room in the <em>Valley</em>, the moment it opens.</h1>
+          <p class="lede">We check Yosemite’s official reservation system around the clock and alert your phone the second a matching room appears.</p>
+          <div class="hero-actions">
+            <button id="btnCheckAll" class="btn btn-cream btn-lg" type="button">
+              <svg class="i"><use href="/icons.svg#i-refresh-cw"/></svg> Check all now
+            </button>
+            <button id="btnNewWatch" class="btn btn-glass btn-lg" type="button">
+              <svg class="i"><use href="/icons.svg#i-plus"/></svg> New watch request
+            </button>
+          </div>
+        </div>
+
+        <p id="heroCountdown" class="countdown hidden"></p>
+        <a id="heroCredit" class="photo-credit" href="#" target="_blank" rel="noopener">
+          <svg class="i"><use href="/icons.svg#i-mountain-snow"/></svg><span class="photo-credit-text"></span>
+        </a>
       </div>
     </header>
 
-    <!-- Live check progress bar -->
-    <section id="progressBanner" class="progress-banner hidden" aria-live="polite">
-      <div class="progress-row">
-        <span class="pulse-dot"></span>
-        <strong id="progressWatchName">Checking Yosemite...</strong>
-        <span id="progressDetail" class="muted">Starting search</span>
-        <span id="progressCounter" class="badge"></span>
-      </div>
-      <div class="progress-track">
-        <div id="progressFill" class="progress-fill" style="width: 0%"></div>
-      </div>
-    </section>
-
-    <!-- Summary strip -->
-    <section class="summary-grid">
-      <div class="stat-card">
-        <div class="stat-label">Active Watches</div>
-        <div id="statActiveWatches" class="stat-value">0</div>
-        <div class="stat-sub">Running automatically</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Openings Found</div>
-        <div id="statOpenings" class="stat-value">0</div>
-        <div class="stat-sub">Matching your room rules</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Phone Push Topic</div>
-        <div class="stat-topic-row">
-          <code id="statTopic" class="topic-pill">—</code>
-          <button id="btnCopyTopicQuick" class="btn-mini" type="button" title="Copy topic">Copy</button>
+    <div class="sheet">
+      <!-- Live check progress -->
+      <section id="progressBanner" class="progress hidden" aria-live="polite">
+        <div class="progress-row">
+          <span class="pulse" aria-hidden="true"></span>
+          <strong id="progressWatchName">Checking Yosemite…</strong>
+          <span id="progressDetail" class="muted">Starting search</span>
+          <span id="progressCounter" class="badge"></span>
         </div>
-        <div class="stat-sub">Free via <strong>ntfy</strong> app (iOS / Android)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Browser &amp; Desktop Alerts</div>
-        <div class="stat-action-row">
-          <span id="browserPermBadge" class="status-pill">Checking...</span>
-          <button id="btnEnableBrowser" class="btn-mini hidden" type="button">Enable</button>
-          <button id="btnTestAlertQuick" class="btn-mini" type="button">Send Test</button>
-        </div>
-        <div class="stat-sub">Instant pop-up + chime</div>
-      </div>
-    </section>
-
-    <!-- Watch Requests List -->
-    <main>
-      <div class="section-header">
-        <h2>Your Watch Requests</h2>
-        <span id="connectionStatus" class="conn-pill">Live updates connected</span>
-      </div>
-
-      <div id="watchesContainer" class="watches-list"></div>
-
-      <!-- Recent Alerts -->
-      <section class="card history-section">
-        <div class="section-header">
-          <h2>Recent Alerts</h2>
-          <button id="btnClearHistory" class="btn btn-ghost btn-sm" type="button">Clear History</button>
-        </div>
-        <div id="historyContainer" class="history-list"></div>
+        <div class="progress-track"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
       </section>
-    </main>
+
+      <!-- At a glance -->
+      <section class="stats" aria-label="At a glance">
+        <article class="stat">
+          <div class="stat-icon"><svg class="i"><use href="/icons.svg#i-radar"/></svg></div>
+          <p class="lbl">Active watches</p>
+          <p id="statActiveWatches" class="stat-num">0</p>
+          <p class="stat-sub">Checking automatically</p>
+        </article>
+        <article class="stat">
+          <div class="stat-icon stat-icon-glow"><svg class="i"><use href="/icons.svg#i-sparkles"/></svg></div>
+          <p class="lbl">Openings found</p>
+          <p id="statOpenings" class="stat-num">0</p>
+          <p class="stat-sub">Matching your room rules</p>
+        </article>
+        <article class="stat">
+          <div class="stat-icon stat-icon-river"><svg class="i"><use href="/icons.svg#i-smartphone"/></svg></div>
+          <p class="lbl">Phone alerts</p>
+          <div class="stat-topic">
+            <code id="statTopic" class="topic">—</code>
+            <button id="btnCopyTopicQuick" class="btn btn-ghost btn-xs" type="button" title="Copy topic name">
+              <svg class="i"><use href="/icons.svg#i-copy"/></svg> Copy
+            </button>
+          </div>
+          <p class="stat-sub">Free with the <strong>ntfy</strong> app</p>
+        </article>
+        <article class="stat">
+          <div class="stat-icon stat-icon-gold"><svg class="i"><use href="/icons.svg#i-monitor"/></svg></div>
+          <p class="lbl">Desktop &amp; browser</p>
+          <div class="stat-topic">
+            <span id="browserPermBadge" class="badge">Checking…</span>
+            <button id="btnEnableBrowser" class="btn btn-ghost btn-xs hidden" type="button">Enable</button>
+            <button id="btnTestAlertQuick" class="btn btn-ghost btn-xs" type="button">
+              <svg class="i"><use href="/icons.svg#i-bell-ring"/></svg> Send test
+            </button>
+          </div>
+          <p class="stat-sub">Pop-up with a chime</p>
+        </article>
+      </section>
+
+      <!-- Watches -->
+      <main>
+        <div class="section-head">
+          <div>
+            <h2 class="h2">Your watches</h2>
+            <p class="help">Each watch checks every property you choose, for the full stay and for single nights.</p>
+          </div>
+          <div class="section-tools">
+            <ul class="legend" aria-label="Legend">
+              <li><span class="dot dot-open"></span>Open</li>
+              <li><span class="dot dot-sold"></span>Sold out</li>
+              <li><span class="dot dot-warn"></span>Couldn’t check</li>
+            </ul>
+            <span id="connectionStatus" class="live-pill"><span class="live-dot"></span>Live</span>
+          </div>
+        </div>
+
+        <div id="watchesContainer" class="watches"></div>
+
+        <section class="history">
+          <div class="section-head">
+            <div>
+              <h2 class="h2">Recent alerts</h2>
+              <p class="help">Every notification we’ve sent, newest first.</p>
+            </div>
+            <button id="btnClearHistory" class="btn btn-ghost btn-sm" type="button">
+              <svg class="i"><use href="/icons.svg#i-trash-2"/></svg> Clear
+            </button>
+          </div>
+          <div id="historyContainer" class="timeline"></div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="foot scene">
+      <img id="footScene" class="scene-img" alt="" decoding="async" loading="lazy" />
+      <div class="scene-veil scene-veil-foot"></div>
+      <div class="foot-inner">
+        <div class="foot-brand">
+          <img class="logo" src="/favicon.svg" alt="" />
+          <div>
+            <p class="foot-title">Yosemite Valley Lodging Watch</p>
+            <p class="foot-sub">A private family tool. Availability comes from Yosemite’s official reservation system; always book there. Not affiliated with the National Park Service or Aramark.</p>
+          </div>
+        </div>
+        <details class="credits">
+          <summary>Photo credits</summary>
+          <p>Photography via Wikimedia Commons, resized and compressed.</p>
+          <ul id="creditsList"></ul>
+        </details>
+      </div>
+    </footer>
   </div>
 
-  <!-- Watch Request Editor Modal -->
-  <div id="watchModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="watchModalTitle">
+  <!-- ============ Watch editor ============ -->
+  <div id="watchModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="watchModalTitle">
     <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="watchModalTitle">Edit Watch Request</h2>
-        <button class="btn btn-ghost btn-icon" data-close-modal="watchModal" type="button" aria-label="Close">✕</button>
-      </div>
-      <form id="watchForm" class="modal-body">
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Watch request</p>
+          <h2 id="watchModalTitle" class="modal-title">New watch request</h2>
+        </div>
+        <button class="icon-btn" data-close-modal="watchModal" type="button" aria-label="Close"><svg class="i"><use href="/icons.svg#i-x"/></svg></button>
+      </header>
+      <form id="watchForm" class="modal-body" novalidate>
         <input type="hidden" id="wfId" />
 
-        <div class="form-group">
-          <label for="wfName">Request Name</label>
-          <input id="wfName" type="text" required placeholder="e.g. Yosemite Valley — Indoor Rooms (Both Families)" />
+        <div class="field">
+          <label class="lbl" for="wfName">Name</label>
+          <input id="wfName" class="control" type="text" required placeholder="e.g. Valley indoor rooms, both families" />
         </div>
 
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="wfCheckIn">Check-in Date</label>
-            <input id="wfCheckIn" type="date" required />
+        <div class="grid-2">
+          <div class="field">
+            <label class="lbl" for="wfCheckIn">Check-in</label>
+            <input id="wfCheckIn" class="control" type="date" required />
           </div>
-          <div class="form-group">
-            <label for="wfCheckOut">Check-out Date</label>
-            <input id="wfCheckOut" type="date" required />
-          </div>
-        </div>
-
-        <div class="form-row-3">
-          <div class="form-group">
-            <label for="wfRooms">Rooms</label>
-            <input id="wfRooms" type="number" min="1" max="9" value="1" required />
-          </div>
-          <div class="form-group">
-            <label for="wfAdults">Adults (per search)</label>
-            <input id="wfAdults" type="number" min="1" max="9" value="2" required />
-          </div>
-          <div class="form-group">
-            <label for="wfChildren">Children</label>
-            <input id="wfChildren" type="number" min="0" max="9" value="2" required />
+          <div class="field">
+            <label class="lbl" for="wfCheckOut">Check-out</label>
+            <input id="wfCheckOut" class="control" type="date" required />
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Yosemite Valley Properties to Watch</label>
-          <div id="wfPropertiesGrid" class="checkbox-grid"></div>
-        </div>
-
-        <div class="form-group">
-          <label>Room Rules</label>
-          <div class="toggle-stack">
-            <label class="toggle-item">
-              <input id="wfExcludeTents" type="checkbox" checked />
-              <span><strong>Exclude all canvas tents &amp; tent cabins</strong> (blocks Curry Village heated/unheated tents)</span>
-            </label>
-            <label class="toggle-item">
-              <input id="wfRequireBath" type="checkbox" checked />
-              <span><strong>Require private bathroom</strong> (keeps hotel rooms, Stoneman House &amp; wooden cabins with bath)</span>
-            </label>
+        <fieldset class="fieldset">
+          <legend class="lbl">Rooms needed</legend>
+          <div class="rooms-top">
+            <div class="stepper" role="group" aria-label="Number of rooms needed">
+              <button type="button" id="wfRoomMinus" class="icon-btn" aria-label="Fewer rooms"><svg class="i"><use href="/icons.svg#i-minus"/></svg></button>
+              <output id="wfRoomCount" class="stepper-value" aria-live="polite">1</output>
+              <button type="button" id="wfRoomPlus" class="icon-btn" aria-label="More rooms"><svg class="i"><use href="/icons.svg#i-plus"/></svg></button>
+            </div>
+            <p class="help">Each room is its own search, with its own guests and its own booked nights, so you can book them one at a time.</p>
           </div>
-        </div>
+          <div id="wfRoomsList" class="room-list"></div>
+        </fieldset>
 
-        <div class="form-row-3">
-          <div class="form-group">
-            <label for="wfMatchMode">Night Matching</label>
-            <select id="wfMatchMode">
-              <option value="both">Full stay + individual nights</option>
+        <fieldset class="fieldset">
+          <legend class="lbl">Where to look</legend>
+          <div id="wfPropertiesGrid" class="pick-grid"></div>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend class="lbl">Room rules</legend>
+          <label class="option">
+            <input id="wfExcludeTents" class="switch" type="checkbox" checked />
+            <span class="option-body"><span class="option-title">No tents</span><span class="option-desc">Skip canvas tent cabins, heated or not.</span></span>
+          </label>
+          <label class="option">
+            <input id="wfRequireBath" class="switch" type="checkbox" checked />
+            <span class="option-body"><span class="option-title">Private bathroom only</span><span class="option-desc">Keeps hotel rooms, Stoneman cottages and cabins with bath.</span></span>
+          </label>
+        </fieldset>
+
+        <div class="grid-3">
+          <div class="field">
+            <label class="lbl" for="wfMatchMode">Nights</label>
+            <select id="wfMatchMode" class="control">
+              <option value="both">Full stay + single nights</option>
               <option value="full">Full stay only</option>
             </select>
           </div>
-          <div class="form-group">
-            <label for="wfInterval">Check Frequency</label>
-            <select id="wfInterval">
-              <option value="5">Every 5 minutes</option>
-              <option value="10" selected>Every 10 minutes</option>
-              <option value="15">Every 15 minutes</option>
-              <option value="30">Every 30 minutes</option>
-              <option value="60">Every 60 minutes</option>
+          <div class="field">
+            <label class="lbl" for="wfInterval">Check every</label>
+            <select id="wfInterval" class="control">
+              <option value="5">5 minutes</option>
+              <option value="10" selected>10 minutes</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="60">60 minutes</option>
             </select>
           </div>
-          <div class="form-group">
-            <label for="wfMaxPrice">Max $/night (optional)</label>
-            <input id="wfMaxPrice" type="number" min="50" step="10" placeholder="No limit" />
+          <div class="field">
+            <label class="lbl" for="wfMaxPrice">Max per night <span class="lbl-opt">optional</span></label>
+            <input id="wfMaxPrice" class="control" type="number" min="50" step="10" placeholder="No limit" />
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="wfNotes">Notes (optional)</label>
-          <textarea id="wfNotes" rows="2" placeholder="e.g. Fine to book one family at a time"></textarea>
+        <div class="field">
+          <label class="lbl" for="wfNotes">Notes <span class="lbl-opt">optional</span></label>
+          <textarea id="wfNotes" class="control control-area" rows="2" placeholder="e.g. Fine to book one family at a time"></textarea>
         </div>
 
-        <label class="toggle-item">
-          <input id="wfCheckNow" type="checkbox" checked />
-          <span>Run an immediate check after saving</span>
+        <label class="option option-plain">
+          <input id="wfCheckNow" class="switch" type="checkbox" checked />
+          <span class="option-body"><span class="option-title">Check right after saving</span></span>
         </label>
 
-        <div id="wfError" class="form-error hidden"></div>
+        <div id="wfError" class="alert alert-error hidden" role="alert"></div>
 
-        <div class="modal-footer">
+        <footer class="modal-foot">
           <button type="button" class="btn btn-ghost" data-close-modal="watchModal">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Watch Request</button>
-        </div>
+          <button type="submit" class="btn btn-primary">Save watch request</button>
+        </footer>
       </form>
     </div>
   </div>
 
-  <!-- Alert Settings Modal -->
-  <div id="alertsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="alertsModalTitle">
+  <!-- ============ Alert settings ============ -->
+  <div id="alertsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="alertsModalTitle">
     <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="alertsModalTitle">Phone &amp; Desktop Alert Settings</h2>
-        <button class="btn btn-ghost btn-icon" data-close-modal="alertsModal" type="button" aria-label="Close">✕</button>
-      </div>
-      <form id="alertsForm" class="modal-body">
-        <div class="info-box">
-          <strong>Free Phone Push Setup (2 minutes, $0):</strong>
-          <ol>
-            <li>Install the free <strong>ntfy</strong> app on iPhone (App Store) or Android (Google Play).</li>
-            <li>Open the app, tap <strong>+</strong>, and type your private topic name below.</li>
-            <li>Tap <strong>Send Test Alert</strong> here — your phone will buzz immediately!</li>
-          </ol>
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Notifications</p>
+          <h2 id="alertsModalTitle" class="modal-title">Phone &amp; desktop alerts</h2>
+        </div>
+        <button class="icon-btn" data-close-modal="alertsModal" type="button" aria-label="Close"><svg class="i"><use href="/icons.svg#i-x"/></svg></button>
+      </header>
+      <form id="alertsForm" class="modal-body" novalidate>
+        <div class="callout">
+          <svg class="i callout-i"><use href="/icons.svg#i-smartphone"/></svg>
+          <div>
+            <p><strong>Free phone alerts in two minutes</strong></p>
+            <ol class="steps">
+              <li>Install the free <strong>ntfy</strong> app (App Store or Google Play).</li>
+              <li>Tap <strong>+</strong> and subscribe to your private topic below.</li>
+              <li>Tap <strong>Send test alert</strong>. Your phone should buzz.</li>
+            </ol>
+          </div>
         </div>
 
-        <label class="toggle-item">
-          <input id="afNtfyEnabled" type="checkbox" />
-          <span><strong>Enable Phone Push Alerts (ntfy)</strong></span>
+        <label class="option">
+          <input id="afNtfyEnabled" class="switch" type="checkbox" />
+          <span class="option-body"><span class="option-title">Phone push alerts</span><span class="option-desc">Delivered through ntfy, with a one-tap booking link.</span></span>
         </label>
 
-        <div class="form-row-2">
-          <div class="form-group">
-            <label for="afNtfyTopic">Your Private Topic Name</label>
-            <input id="afNtfyTopic" type="text" required placeholder="yosemite-watch-abc123" />
+        <div class="grid-2">
+          <div class="field">
+            <label class="lbl" for="afNtfyTopic">Private topic name</label>
+            <input id="afNtfyTopic" class="control" type="text" required placeholder="yosemite-watch-abc123" />
           </div>
-          <div class="form-group">
-            <label for="afNtfyServer">ntfy Server</label>
-            <input id="afNtfyServer" type="url" value="https://ntfy.sh" />
+          <div class="field">
+            <label class="lbl" for="afNtfyServer">ntfy server</label>
+            <input id="afNtfyServer" class="control" type="url" value="https://ntfy.sh" />
           </div>
         </div>
 
-        <div class="toggle-stack">
-          <label class="toggle-item">
-            <input id="afDesktopEnabled" type="checkbox" />
-            <span><strong>Native Desktop Toast Alerts</strong> (Windows / Mac / Linux where the service runs)</span>
+        <fieldset class="fieldset">
+          <legend class="lbl">This computer</legend>
+          <label class="option">
+            <input id="afDesktopEnabled" class="switch" type="checkbox" />
+            <span class="option-body"><span class="option-title">Desktop notifications</span><span class="option-desc">Native toast from the machine running the watcher.</span></span>
           </label>
-          <label class="toggle-item">
-            <input id="afBrowserEnabled" type="checkbox" />
-            <span><strong>Browser Pop-up Alerts</strong> (when this dashboard tab is open)</span>
+          <label class="option">
+            <input id="afBrowserEnabled" class="switch" type="checkbox" />
+            <span class="option-body"><span class="option-title">Browser pop-ups</span><span class="option-desc">While this page is open in a tab.</span></span>
           </label>
-          <label class="toggle-item">
-            <input id="afSoundEnabled" type="checkbox" />
-            <span><strong>Play Chime Sound</strong> when an opening is found</span>
+          <label class="option">
+            <input id="afSoundEnabled" class="switch" type="checkbox" />
+            <span class="option-body"><span class="option-title">Chime</span><span class="option-desc">A short sound when a room opens.</span></span>
           </label>
-        </div>
+        </fieldset>
 
-        <div id="afFeedback" class="form-feedback hidden"></div>
+        <div id="afFeedback" class="alert alert-ok hidden" role="status"></div>
 
-        <div class="modal-footer">
-          <button id="btnTestAlertModal" type="button" class="btn btn-secondary">Send Test Alert</button>
-          <div class="spacer"></div>
+        <footer class="modal-foot">
+          <button id="btnTestAlertModal" type="button" class="btn btn-secondary">
+            <svg class="i"><use href="/icons.svg#i-bell-ring"/></svg> Send test alert
+          </button>
+          <span class="spacer"></span>
           <button type="button" class="btn btn-ghost" data-close-modal="alertsModal">Close</button>
-          <button type="submit" class="btn btn-primary">Save Settings</button>
-        </div>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </footer>
       </form>
     </div>
   </div>
 
-  <!-- Accounts & Passkeys Modal -->
-  <div id="accountsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="accountsModalTitle">
+  <!-- ============ Accounts & passkeys ============ -->
+  <div id="accountsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="accountsModalTitle">
     <div class="modal-card modal-wide">
-      <div class="modal-header">
-        <h2 id="accountsModalTitle">Accounts &amp; Passkeys</h2>
-        <button class="btn btn-ghost btn-icon" data-close-modal="accountsModal" type="button" aria-label="Close">✕</button>
-      </div>
+      <header class="modal-head">
+        <div>
+          <p class="eyebrow">Security</p>
+          <h2 id="accountsModalTitle" class="modal-title">Accounts &amp; passkeys</h2>
+        </div>
+        <button class="icon-btn" data-close-modal="accountsModal" type="button" aria-label="Close"><svg class="i"><use href="/icons.svg#i-x"/></svg></button>
+      </header>
       <div class="modal-body">
-        <!-- Own Passkeys -->
-        <section class="account-section">
-          <div class="section-header">
-            <h3>Your Passkeys (<span id="ownAccountRole"></span>)</h3>
+        <section class="panel">
+          <div class="panel-head">
+            <h3 class="h3">Your passkeys</h3>
+            <span id="ownAccountRole" class="badge"></span>
           </div>
-          <p class="auth-hint" id="ownPasskeyHint"></p>
-          <div id="ownPasskeysList" class="passkey-list"></div>
+          <p class="help" id="ownPasskeyHint"></p>
+          <div id="ownPasskeysList" class="rows"></div>
           <div class="inline-form">
-            <input id="ownNewKeyLabel" type="text" maxlength="60" placeholder="Device label (e.g. iPhone, Work PC)" />
-            <button id="btnAddOwnPasskey" type="button" class="btn btn-primary">🔑 Add Passkey</button>
+            <input id="ownNewKeyLabel" class="control" type="text" maxlength="60" placeholder="Device name, e.g. iPhone" aria-label="Device name" />
+            <button id="btnAddOwnPasskey" type="button" class="btn btn-primary">
+              <svg class="i"><use href="/icons.svg#i-key-round"/></svg> Add passkey
+            </button>
           </div>
-          <div id="ownPasskeyFeedback" class="form-feedback hidden"></div>
-          <div id="ownPasskeyError" class="form-error hidden"></div>
+          <div id="ownPasskeyFeedback" class="alert alert-ok hidden" role="status"></div>
+          <div id="ownPasskeyError" class="alert alert-error hidden" role="alert"></div>
         </section>
 
-        <!-- Admin-Only Roster -->
-        <section id="adminRosterSection" class="account-section hidden">
-          <div class="section-header">
-            <h3>Invite &amp; Manage Accounts (Admin Only)</h3>
+        <section id="adminRosterSection" class="panel hidden">
+          <div class="panel-head">
+            <h3 class="h3">Invite &amp; manage people</h3>
           </div>
-          <form id="addMemberForm" class="invite-box">
-            <div class="form-row-2">
-              <div class="form-group">
-                <label for="amName">Person's Name</label>
-                <input id="amName" type="text" required minlength="2" maxlength="60" placeholder="e.g. Sarah" />
+
+          <form id="addMemberForm" class="invite" novalidate>
+            <div class="grid-2">
+              <div class="field">
+                <label class="lbl" for="amName">Name</label>
+                <input id="amName" class="control" type="text" required minlength="2" maxlength="60" placeholder="e.g. Sarah" />
               </div>
-              <div class="form-group">
-                <label for="amRole">Account Type</label>
-                <select id="amRole">
-                  <option value="Member" selected>Member (1-time temp password → passkey only)</option>
-                  <option value="Administrator">Administrator (keeps password + passkey)</option>
+              <div class="field">
+                <label class="lbl" for="amRole">Account type</label>
+                <select id="amRole" class="control">
+                  <option value="Member" selected>Member (passkey only)</option>
+                  <option value="Administrator">Administrator (password + passkey)</option>
                 </select>
               </div>
             </div>
-            <div class="form-group">
-              <label for="amPassword">Temporary Password (at least 12 characters, unique)</label>
+            <div class="field">
+              <label class="lbl" for="amPassword">Temporary password</label>
               <div class="inline-form">
-                <input id="amPassword" type="text" required minlength="12" placeholder="Click Generate or type a temp password" autocomplete="off" />
-                <button id="btnGenTempPw" type="button" class="btn btn-secondary btn-sm">Generate</button>
-                <button id="btnCopyTempPw" type="button" class="btn btn-ghost btn-sm">Copy</button>
+                <input id="amPassword" class="control" type="text" required minlength="12" placeholder="Generate one, or type your own" autocomplete="off" />
+                <button id="btnGenTempPw" type="button" class="btn btn-secondary btn-sm"><svg class="i"><use href="/icons.svg#i-sparkles"/></svg> Generate</button>
+                <button id="btnCopyTempPw" type="button" class="btn btn-ghost btn-sm"><svg class="i"><use href="/icons.svg#i-copy"/></svg> Copy</button>
               </div>
+              <p class="help">At least 12 characters and unique across accounts.</p>
             </div>
-            <div id="amError" class="form-error hidden"></div>
-            <div id="amFeedback" class="form-feedback hidden"></div>
-            <button type="submit" class="btn btn-primary btn-sm">+ Create Account</button>
+            <div id="amError" class="alert alert-error hidden" role="alert"></div>
+            <div id="amFeedback" class="alert alert-ok hidden" role="status"></div>
+            <div><button type="submit" class="btn btn-primary btn-sm"><svg class="i"><use href="/icons.svg#i-user-plus"/></svg> Create account</button></div>
           </form>
 
-          <div id="rosterList" class="roster-list"></div>
+          <div id="rosterList" class="members"></div>
 
-          <details class="audit-details">
-            <summary>Recent Sign-In &amp; Access Log</summary>
+          <details class="audit">
+            <summary><svg class="i"><use href="/icons.svg#i-scroll-text"/></svg> Recent sign-in &amp; access log</summary>
             <div id="auditList" class="audit-list"></div>
           </details>
         </section>
@@ -387,9 +503,26 @@
     </div>
   </div>
 
-  <!-- Toast container -->
-  <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+  <div id="toastStack" class="toasts" aria-live="polite"></div>
 
+  <!-- Confirm / prompt dialog -->
+  <div id="dialogModal" class="modal modal-dialog hidden" role="alertdialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <div class="modal-card dialog-card">
+      <div class="dialog-body">
+        <span id="dialogIcon" class="dialog-icon"></span>
+        <h2 id="dialogTitle" class="dialog-title"></h2>
+        <p id="dialogMessage" class="help"></p>
+        <input id="dialogInput" class="control hidden" type="text" autocomplete="off" />
+      </div>
+      <footer class="dialog-foot">
+        <button id="dialogCancel" type="button" class="btn btn-ghost">Cancel</button>
+        <button id="dialogOk" type="button" class="btn btn-primary">OK</button>
+      </footer>
+    </div>
+  </div>
+
+  <script src="/scenes.js"></script>
+  <script src="/dialogs.js"></script>
   <script src="/auth-ui.js"></script>
   <script src="/app.js"></script>
 </body>

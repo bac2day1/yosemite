@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
 const { PROPERTIES } = require('./config');
-const { buildDateSegments, roomMatchesWatch, toUsDate, parsePrice, OUTAGE_PATTERN, detectSiteOutage } = require('./filter');
+const { buildDateSegments, roomMatchesWatch, toUsDate, parsePrice, groupRoomParties, bookedInAllRooms, OUTAGE_PATTERN, detectSiteOutage } = require('./filter');
 
 /** Thrown when Yosemite's reservation site is down. Aborts the whole check instead of timing out segment by segment. */
 class SiteOfflineError extends Error {
@@ -179,8 +179,13 @@ class YosemiteScraper {
    * selected properties and date segments (full stay + optional individual nights).
    */
   async checkWatch(watch, onProgress) {
-    const segments = buildDateSegments(watch.checkIn, watch.checkOut, watch.matchMode);
-    const totalSteps = watch.properties.length * segments.length;
+    // Each distinct group of guests is its own search (always for one room); identical rooms share it
+    const plans = groupRoomParties(watch.roomSlots).map(party => ({
+      party,
+      segments: buildDateSegments(watch.checkIn, watch.checkOut, watch.matchMode, bookedInAllRooms(party.slots))
+    }));
+    const multipleParties = plans.length > 1;
+    const totalSteps = plans.reduce((sum, plan) => sum + plan.segments.length, 0) * watch.properties.length;
     let completedSteps = 0;
 
     const browser = await this.ensureBrowser();
@@ -194,104 +199,120 @@ class YosemiteScraper {
     });
 
     const matches = [];
-    const excludedCountByProperty = {};
-    const errors = [];
-    const segmentStatus = {}; // { [propertyCode]: { [checkIn + ':' + checkOut]: { status, matchCount, excludedCount, rooms } } }
+    const partyResults = [];
 
     try {
       const page = await this.createConfiguredPage(context);
 
-      for (const propCode of watch.properties) {
-        const prop = PROPERTIES[propCode];
-        if (!prop) continue;
-        segmentStatus[propCode] = {};
-        excludedCountByProperty[propCode] = 0;
+      for (const { party, segments } of plans) {
+        const partyResult = {
+          key: party.key,
+          adults: party.adults,
+          children: party.children,
+          roomIds: party.slots.map(slot => slot.id),
+          segments,
+          segmentStatus: {}, // { [propertyCode]: { [checkIn:checkOut]: { status, matchCount, excludedCount, rooms } } }
+          excludedCountByProperty: {},
+          errors: []
+        };
+        partyResults.push(partyResult);
+        const guests = multipleParties ? ` (${party.adults} adults, ${party.children} kids)` : '';
 
-        for (const seg of segments) {
-          completedSteps += 1;
-          if (typeof onProgress === 'function') {
-            onProgress({
-              watchId: watch.id,
-              step: completedSteps,
-              totalSteps,
-              propertyCode: propCode,
-              propertyName: prop.name,
-              segmentLabel: seg.label
-            });
-          }
+        for (const propCode of watch.properties) {
+          const prop = PROPERTIES[propCode];
+          if (!prop) continue;
+          partyResult.segmentStatus[propCode] = {};
+          partyResult.excludedCountByProperty[propCode] = 0;
 
-          const segKey = `${seg.checkIn}:${seg.checkOut}`;
-          try {
-            const rawRooms = await this.searchOnce(page, {
-              propertyCode: propCode,
-              checkIn: seg.checkIn,
-              checkOut: seg.checkOut,
-              rooms: watch.rooms,
-              adults: watch.adults,
-              children: watch.children
-            });
-
-            const matchedRooms = [];
-            let excludedCount = 0;
-            for (const room of rawRooms) {
-              const check = roomMatchesWatch(room, watch);
-              if (check.matched) {
-                matchedRooms.push(room);
-                matches.push({
-                  key: `${watch.id}|${propCode}|${seg.checkIn}|${seg.checkOut}|${room.roomName}`,
-                  watchId: watch.id,
-                  watchName: watch.name,
-                  propertyCode: propCode,
-                  propertyName: room.propertyName,
-                  roomName: room.roomName,
-                  priceText: room.priceText,
-                  pricePerNight: room.pricePerNight,
-                  description: room.description,
-                  bookingUrl: room.bookingUrl,
-                  segmentKind: seg.kind,
-                  segmentLabel: seg.label,
-                  checkIn: seg.checkIn,
-                  checkOut: seg.checkOut,
-                  nights: seg.nights
-                });
-              } else {
-                excludedCount += 1;
-              }
+          for (const seg of segments) {
+            completedSteps += 1;
+            if (typeof onProgress === 'function') {
+              onProgress({
+                watchId: watch.id,
+                step: completedSteps,
+                totalSteps,
+                propertyCode: propCode,
+                propertyName: prop.name,
+                segmentLabel: seg.label + guests
+              });
             }
 
-            excludedCountByProperty[propCode] += excludedCount;
-            segmentStatus[propCode][segKey] = {
-              kind: seg.kind,
-              label: seg.label,
-              checkIn: seg.checkIn,
-              checkOut: seg.checkOut,
-              status: matchedRooms.length > 0 ? 'available' : 'sold_out',
-              matchCount: matchedRooms.length,
-              excludedCount,
-              rooms: matchedRooms
-            };
-          } catch (err) {
-            // A site-wide outage means every remaining segment would fail too, so stop and report it once.
-            if (err.code === 'SITE_OFFLINE') throw err;
-            errors.push({
-              propertyCode: propCode,
-              propertyName: prop.name,
-              segmentLabel: seg.label,
-              message: err.message
-            });
-            segmentStatus[propCode][segKey] = {
-              kind: seg.kind,
-              label: seg.label,
-              checkIn: seg.checkIn,
-              checkOut: seg.checkOut,
-              status: 'error',
-              matchCount: 0,
-              excludedCount: 0,
-              error: err.message,
-              rooms: []
-            };
-            // Reload landing page on error so next step starts cleanly
-            await page.goto(SEARCH_LANDING_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+            const segKey = `${seg.checkIn}:${seg.checkOut}`;
+            try {
+              const rawRooms = await this.searchOnce(page, {
+                propertyCode: propCode,
+                checkIn: seg.checkIn,
+                checkOut: seg.checkOut,
+                rooms: 1,
+                adults: party.adults,
+                children: party.children
+              });
+
+              const matchedRooms = [];
+              let excludedCount = 0;
+              for (const room of rawRooms) {
+                const check = roomMatchesWatch(room, watch);
+                if (check.matched) {
+                  matchedRooms.push(room);
+                  matches.push({
+                    key: `${watch.id}|${party.key}|${propCode}|${seg.checkIn}|${seg.checkOut}|${room.roomName}`,
+                    watchId: watch.id,
+                    watchName: watch.name,
+                    partyKey: party.key,
+                    adults: party.adults,
+                    children: party.children,
+                    propertyCode: propCode,
+                    propertyName: room.propertyName,
+                    roomName: room.roomName,
+                    priceText: room.priceText,
+                    pricePerNight: room.pricePerNight,
+                    description: room.description,
+                    bookingUrl: room.bookingUrl,
+                    segmentKind: seg.kind,
+                    segmentLabel: seg.label,
+                    checkIn: seg.checkIn,
+                    checkOut: seg.checkOut,
+                    nights: seg.nights
+                  });
+                } else {
+                  excludedCount += 1;
+                }
+              }
+
+              partyResult.excludedCountByProperty[propCode] += excludedCount;
+              partyResult.segmentStatus[propCode][segKey] = {
+                kind: seg.kind,
+                label: seg.label,
+                checkIn: seg.checkIn,
+                checkOut: seg.checkOut,
+                status: matchedRooms.length > 0 ? 'available' : 'sold_out',
+                matchCount: matchedRooms.length,
+                excludedCount,
+                rooms: matchedRooms
+              };
+            } catch (err) {
+              // A site-wide outage means every remaining segment would fail too, so stop and report it once.
+              if (err.code === 'SITE_OFFLINE') throw err;
+              partyResult.errors.push({
+                propertyCode: propCode,
+                propertyName: prop.name,
+                segmentLabel: seg.label,
+                message: err.message
+              });
+              partyResult.segmentStatus[propCode][segKey] = {
+                kind: seg.kind,
+                label: seg.label,
+                checkIn: seg.checkIn,
+                checkOut: seg.checkOut,
+                status: 'error',
+                matchCount: 0,
+                excludedCount: 0,
+                error: err.message,
+                rooms: []
+              };
+              // Reload landing page on error so next step starts cleanly
+              await page.goto(SEARCH_LANDING_URL, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+            }
           }
         }
       }
@@ -302,11 +323,9 @@ class YosemiteScraper {
     return {
       watchId: watch.id,
       checkedAt: new Date().toISOString(),
-      segments,
+      parties: partyResults,
       matches,
-      segmentStatus,
-      excludedCountByProperty,
-      errors
+      errors: partyResults.flatMap(p => p.errors)
     };
   }
 }

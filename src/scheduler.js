@@ -1,5 +1,6 @@
 const { dispatchAlerts } = require('./notifier');
 const { saveState } = require('./config');
+const { roomsForMatch } = require('./filter');
 
 class WatchScheduler {
   constructor({ scraper, getConfig, getState, broadcast }) {
@@ -174,7 +175,10 @@ class WatchScheduler {
 
     const lines = newMatches.slice(0, 6).map(m => {
       const price = m.priceText ? ` (${m.priceText}/night)` : '';
-      return `• ${m.propertyName}: ${m.roomName}${price} — ${m.segmentLabel}`;
+      // With several rooms needed, say which of them this opening could serve
+      const forRooms = (watch.roomSlots || []).length > 1 ? roomsForMatch(watch.roomSlots, m).map(r => r.label) : [];
+      const serves = forRooms.length ? ` · for ${forRooms.join(', ')}` : '';
+      return `• ${m.propertyName}: ${m.roomName}${price} — ${m.segmentLabel}${serves}`;
     });
     if (newMatches.length > 6) {
       lines.push(`...and ${newMatches.length - 6} more matching option(s).`);
