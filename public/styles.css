@@ -413,16 +413,24 @@ input[type='date'].control { padding-right: 10px; }
 .sheet { position: relative; z-index: 2; max-width: 1180px; margin: -96px auto 0; padding: 0 20px 72px; }
 
 .progress {
-  position: sticky; top: 12px; z-index: 30; margin-bottom: 16px; padding: 14px 18px; border-radius: 16px;
+  position: fixed; top: 14px; left: 50%; z-index: 60; width: min(440px, calc(100vw - 32px)); padding: 12px 18px 14px; border-radius: 16px;
   background: var(--glass); border: 1px solid var(--ok-line);
   -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: var(--shadow-md);
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translate(-50%, -14px);
+  transition: opacity .25s ease, transform .25s ease, visibility 0s linear .25s;
 }
+.progress.is-active { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s; }
+@media (max-width: 1199px) { .progress { top: 76px; } }
 .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 15px; }
+.progress-row .badge { margin-left: auto; }
 .pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--pine); box-shadow: 0 0 0 0 color-mix(in srgb, var(--pine) 60%, transparent); animation: pulse 1.6s infinite; }
 .progress-track { height: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--pine), var(--glow)); transition: width .35s ease; }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 44px; }
+.perm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 4px 2px 2px; font-size: 14.5px; color: var(--ink-2); }
+.perm-row .btn { margin-left: auto; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 44px; }
 .stat {
   position: relative; padding: 18px 20px 16px; border-radius: var(--radius);
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-md);
@@ -673,6 +681,12 @@ form.modal-body { padding-bottom: 0; }
 @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes toast-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes found-glow {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--glow) 70%, transparent), var(--shadow-md); transform: translateY(6px); }
+  30% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--glow) 25%, transparent), var(--shadow-md); transform: none; }
+  100% { box-shadow: 0 0 0 0 transparent, var(--shadow-md); transform: none; }
+}
+.watch.just-found { animation: found-glow 2.2s ease-out 1; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pine) 55%, transparent); } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 
 @media (prefers-reduced-motion: reduce) {

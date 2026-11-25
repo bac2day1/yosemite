@@ -73,11 +73,12 @@ app.get('/api/state', requireAuth, (req, res) => {
 // Live SSE stream
 app.get('/api/events', requireAuth, (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
 
-  res.write(`event: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+  res.write(`retry: 3000\nevent: connected\ndata: ${JSON.stringify({ ok: true })}\n\n`);
   sseClients.add(res);
 
   const keepAlive = setInterval(() => {

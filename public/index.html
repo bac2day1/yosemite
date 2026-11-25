@@ -155,17 +155,6 @@
     </header>
 
     <div class="sheet">
-      <!-- Live check progress -->
-      <section id="progressBanner" class="progress hidden" aria-live="polite">
-        <div class="progress-row">
-          <span class="pulse" aria-hidden="true"></span>
-          <strong id="progressWatchName">Checking Yosemite…</strong>
-          <span id="progressDetail" class="muted">Starting search</span>
-          <span id="progressCounter" class="badge"></span>
-        </div>
-        <div class="progress-track"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
-      </section>
-
       <!-- At a glance -->
       <section class="stats" aria-label="At a glance">
         <article class="stat">
@@ -179,29 +168,6 @@
           <p class="lbl">Openings found</p>
           <p id="statOpenings" class="stat-num">0</p>
           <p class="stat-sub">Matching your room rules</p>
-        </article>
-        <article class="stat">
-          <div class="stat-icon stat-icon-river"><svg class="i"><use href="/icons.svg#i-smartphone"/></svg></div>
-          <p class="lbl">Phone alerts</p>
-          <div class="stat-topic">
-            <code id="statTopic" class="topic">—</code>
-            <button id="btnCopyTopicQuick" class="btn btn-ghost btn-xs" type="button" title="Copy topic name">
-              <svg class="i"><use href="/icons.svg#i-copy"/></svg> Copy
-            </button>
-          </div>
-          <p class="stat-sub">Free with the <strong>ntfy</strong> app</p>
-        </article>
-        <article class="stat">
-          <div class="stat-icon stat-icon-gold"><svg class="i"><use href="/icons.svg#i-monitor"/></svg></div>
-          <p class="lbl">Desktop &amp; browser</p>
-          <div class="stat-topic">
-            <span id="browserPermBadge" class="badge">Checking…</span>
-            <button id="btnEnableBrowser" class="btn btn-ghost btn-xs hidden" type="button">Enable</button>
-            <button id="btnTestAlertQuick" class="btn btn-ghost btn-xs" type="button">
-              <svg class="i"><use href="/icons.svg#i-bell-ring"/></svg> Send test
-            </button>
-          </div>
-          <p class="stat-sub">Pop-up with a chime</p>
         </article>
       </section>
 
@@ -411,6 +377,11 @@
             <input id="afBrowserEnabled" class="switch" type="checkbox" />
             <span class="option-body"><span class="option-title">Browser pop-ups</span><span class="option-desc">While this page is open in a tab.</span></span>
           </label>
+          <div class="perm-row">
+            <span>This browser’s permission</span>
+            <span id="browserPermBadge" class="badge">Checking…</span>
+            <button id="btnEnableBrowser" class="btn btn-secondary btn-sm hidden" type="button">Allow notifications</button>
+          </div>
           <label class="option">
             <input id="afSoundEnabled" class="switch" type="checkbox" />
             <span class="option-body"><span class="option-title">Chime</span><span class="option-desc">A short sound when a room opens.</span></span>
@@ -502,6 +473,17 @@
       </div>
     </div>
   </div>
+
+  <!-- Live check progress: floats above the page so it never moves the layout -->
+  <section id="progressBanner" class="progress" role="status" aria-live="polite" aria-hidden="true">
+    <div class="progress-row">
+      <span class="pulse" aria-hidden="true"></span>
+      <strong id="progressWatchName">Checking Yosemite…</strong>
+      <span id="progressDetail" class="muted">Starting search</span>
+      <span id="progressCounter" class="badge"></span>
+    </div>
+    <div class="progress-track"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
+  </section>
 
   <div id="toastStack" class="toasts" aria-live="polite"></div>
 

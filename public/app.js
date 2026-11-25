@@ -8,6 +8,8 @@
 
   const $ = id => document.getElementById(id);
   const PROPERTY_ICONS = { Y: 'hotel', M: 'landmark', D: 'tent-tree', H: 'tent' };
+  const BASE_TITLE = document.title;
+  let knownMatchKeys = null;
 
   const ico = (name, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use href="/icons.svg#i-${name}"/></svg>`;
 
@@ -129,11 +131,9 @@
   function renderProgress() {
     const run = appState.runtime.running;
     const banner = $('progressBanner');
-    if (!run) {
-      banner.classList.add('hidden');
-      return;
-    }
-    banner.classList.remove('hidden');
+    banner.classList.toggle('is-active', Boolean(run));
+    banner.setAttribute('aria-hidden', run ? 'false' : 'true');
+    if (!run) return;
     $('progressWatchName').textContent = `Checking ${run.watchName || 'Yosemite'}`;
     $('progressDetail').textContent = run.propertyName
       ? `${run.propertyName} · ${run.segmentLabel}`
@@ -221,8 +221,8 @@
     let totalMatches = 0;
     for (const w of appState.config.watches) totalMatches += liveMatches(w).length;
     $('statOpenings').textContent = String(totalMatches);
-    $('statTopic').textContent = appState.config.alerts.ntfyTopic || 'Not set';
     renderCountdown();
+    document.title = totalMatches > 0 ? `(${totalMatches}) ${BASE_TITLE}` : BASE_TITLE;
   }
 
   function segPill(seg, prop) {
@@ -237,9 +237,30 @@
     return `<span class="seg sold${full}">${ico('x')}${escapeHtml(short)}</span>`;
   }
 
+  function currentMatchKeys() {
+    const map = new Map();
+    for (const w of appState.config.watches) map.set(w.id, new Set(liveMatches(w).map(m => m.key)));
+    return map;
+  }
+
+  // Returns watch ids that gained an opening since the last render
+  function detectNewOpenings() {
+    const next = currentMatchKeys();
+    const fresh = [];
+    if (knownMatchKeys) {
+      for (const [id, keys] of next) {
+        const before = knownMatchKeys.get(id);
+        if (before && [...keys].some(k => !before.has(k))) fresh.push(id);
+      }
+    }
+    knownMatchKeys = next;
+    return fresh;
+  }
+
   function renderWatches() {
     const container = $('watchesContainer');
     const watches = appState.config.watches;
+    const freshIds = detectNewOpenings();
 
     if (!watches.length) {
       container.innerHTML = `<div class="empty">${ico('radar')}<h3>No watches yet</h3><p>Add a watch request and we’ll start looking for Valley rooms right away.</p><button class="btn btn-primary" type="button" data-empty-new>${ico('plus')} New watch request</button></div>`;
@@ -405,13 +426,20 @@
           </footer>
         </article>`;
     }).join('');
+
+    for (const id of freshIds) {
+      const card = container.querySelector(`[data-watch-id="${CSS.escape(id)}"]`);
+      if (!card) continue;
+      card.classList.add('just-found');
+      card.addEventListener('animationend', () => card.classList.remove('just-found'), { once: true });
+    }
   }
 
   function renderHistory() {
     const container = $('historyContainer');
     const items = appState.state.alertHistory || [];
     if (!items.length) {
-      container.innerHTML = `<div class="empty">${ico('bell-ring')}<h3>No alerts yet</h3><p>Use <strong>Send test</strong> above to make sure your phone and desktop light up.</p></div>`;
+      container.innerHTML = `<div class="empty">${ico('bell-ring')}<h3>No alerts yet</h3><p>Use <strong>Send test alert</strong> in Alerts to make sure your phone and desktop light up.</p></div>`;
       return;
     }
     container.innerHTML = `<ol class="timeline">${items.slice(0, 25).map(item => `
@@ -609,7 +637,6 @@
     });
     $('btnAlertsSettings').addEventListener('click', openAlertsEditor);
     $('btnEnableBrowser').addEventListener('click', requestBrowserNotifications);
-    $('btnTestAlertQuick').addEventListener('click', () => sendTestAlert());
     $('btnTestAlertModal').addEventListener('click', () => sendTestAlert($('afFeedback')));
 
     $('btnCheckAll').addEventListener('click', async () => {
@@ -619,13 +646,6 @@
       } catch (err) {
         showToast(err.message, 'error');
       }
-    });
-
-    $('btnCopyTopicQuick').addEventListener('click', async () => {
-      const topic = appState.config.alerts.ntfyTopic || '';
-      if (!topic) return;
-      await navigator.clipboard?.writeText(topic).catch(() => {});
-      showToast(`Copied “${topic}”`);
     });
 
     $('btnClearHistory').addEventListener('click', async () => {
@@ -764,10 +784,25 @@
     });
   }
 
+  let eventSource = null;
+  let streamWasDown = false;
+
   function connectEvents() {
+    if (eventSource) eventSource.close();
     const es = new EventSource('/api/events');
-    es.addEventListener('open', () => setLive(true));
-    es.addEventListener('error', () => setLive(false));
+    eventSource = es;
+    es.addEventListener('open', () => {
+      setLive(true);
+      // Catch up on anything that happened while the stream was down
+      if (streamWasDown) refreshFullState().catch(() => {});
+      streamWasDown = false;
+    });
+    es.addEventListener('error', () => {
+      setLive(false);
+      streamWasDown = true;
+      // The browser gives up on some failures; start a fresh connection ourselves
+      if (es.readyState === EventSource.CLOSED) setTimeout(connectEvents, 5000);
+    });
     es.addEventListener('progress', e => {
       appState.runtime.running = JSON.parse(e.data);
       renderProgress();
@@ -805,6 +840,13 @@
 
   // Keep countdowns fresh
   setInterval(() => { if (!$('appShell').classList.contains('hidden')) renderWatches(); }, 10000);
+
+  // Safety net: re-sync when the tab wakes up and once a minute, in case the live stream stalls
+  const resync = () => {
+    if (!$('appShell').classList.contains('hidden')) refreshFullState().catch(() => {});
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) resync(); });
+  setInterval(() => { if (!document.hidden) resync(); }, 60000);
 
   updateBrowserNotificationUI();
   bindEvents();
