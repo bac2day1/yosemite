@@ -126,6 +126,7 @@ class WatchScheduler {
 
       const state = this.getState();
       state.watchResults[watch.id] = result;
+      delete state.watchErrors[watch.id];
 
       // Determine newly opened rooms compared to previous check for this watch
       const prevKeys = new Set(state.seenKeys[watch.id] || []);
@@ -148,10 +149,12 @@ class WatchScheduler {
         nextRunAt: this.nextRunAt[watch.id]
       });
     } catch (err) {
-      this.broadcast('watchError', {
-        watchId: watch.id,
-        message: err.message
-      });
+      console.error(`[scheduler] Check failed for "${watch.name}":`, err.message);
+      const failure = { message: String(err.message || 'Check failed').split('\n')[0].slice(0, 240), at: new Date().toISOString() };
+      const state = this.getState();
+      state.watchErrors[watch.id] = failure;
+      saveState(state);
+      this.broadcast('watchError', { watchId: watch.id, ...failure });
       this.nextRunAt[watch.id] = Date.now() + Math.min(watch.intervalMinutes, 5) * 60 * 1000;
     } finally {
       this.running = null;

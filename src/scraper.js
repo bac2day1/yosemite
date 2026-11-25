@@ -24,16 +24,20 @@ class YosemiteScraper {
     if (this.browser && this.browser.isConnected()) {
       return this.browser;
     }
-    this.browser = await chromium.launch({
-      channel: 'chromium',
-      headless: true,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage'
-      ]
-    });
+    try {
+      this.browser = await chromium.launch({
+        channel: 'chromium',
+        headless: true,
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage'
+        ]
+      });
+    } catch (err) {
+      throw new Error(`Could not start the browser: ${String(err.message).split('\n')[0]}`);
+    }
     return this.browser;
   }
 

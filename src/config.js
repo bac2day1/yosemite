@@ -101,6 +101,7 @@ function createDefaultConfig() {
 function createDefaultState() {
   return {
     watchResults: {},
+    watchErrors: {},
     alertHistory: [],
     seenKeys: {}
   };
@@ -145,6 +146,7 @@ function loadState() {
     const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
     return {
       watchResults: raw.watchResults || {},
+      watchErrors: raw.watchErrors || {},
       alertHistory: Array.isArray(raw.alertHistory) ? raw.alertHistory : [],
       seenKeys: raw.seenKeys || {}
     };

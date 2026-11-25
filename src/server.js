@@ -61,6 +61,7 @@ app.get('/api/state', requireAuth, (req, res) => {
     config,
     state: {
       watchResults: state.watchResults,
+      watchErrors: state.watchErrors,
       alertHistory: state.alertHistory
     },
     runtime: scheduler.getRuntimeStatus()
@@ -141,6 +142,7 @@ app.delete('/api/watches/:id', requireAuth, (req, res) => {
     return res.status(404).json({ error: 'Watch request not found.' });
   }
   delete state.watchResults[req.params.id];
+  delete state.watchErrors[req.params.id];
   delete state.seenKeys[req.params.id];
   saveConfig(config);
   saveState(state);

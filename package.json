@@ -11,6 +11,6 @@
   "dependencies": {
     "@simplewebauthn/server": "^14.1.0",
     "express": "^5.1.0",
-    "playwright": "^1.52.0"
+    "playwright": "1.65.1"
   }
 }
